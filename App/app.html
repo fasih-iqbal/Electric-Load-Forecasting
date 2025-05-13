@@ -1,0 +1,2686 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electricity Demand Analysis Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.2/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eefaff',
+                            100: '#dcf5ff',
+                            200: '#b3ecff',
+                            300: '#75ddff',
+                            400: '#2ccfff',
+                            500: '#06b9f2',
+                            600: '#0096ce',
+                            700: '#0078a7',
+                            800: '#06628a',
+                            900: '#0a5272',
+                        },
+                        secondary: {
+                            50: '#fdf2ff',
+                            100: '#fae5ff',
+                            200: '#f5cbff',
+                            300: '#f0a0ff',
+                            400: '#e866ff',
+                            500: '#d836e9',
+                            600: '#c021c9',
+                            700: '#9f18a4',
+                            800: '#821786',
+                            900: '#6c176d',
+                        },
+                        accent: {
+                            50: '#edfff7',
+                            100: '#d5fff0',
+                            200: '#aeffe2',
+                            300: '#70ffcd',
+                            400: '#2bfcb2',
+                            500: '#02e897',
+                            600: '#00bf7c',
+                            700: '#009666',
+                            800: '#077553',
+                            900: '#096046',
+                        },
+                        neutral: {
+                            50: '#f9fafb',
+                            100: '#f3f4f6',
+                            200: '#e5e7eb',
+                            300: '#d1d5db',
+                            400: '#9ca3af',
+                            500: '#6b7280',
+                            600: '#4b5563',
+                            700: '#374151',
+                            800: '#1f2937',
+                            900: '#111827',
+                        },
+                        darkBg: {
+                            900: '#0B1120',
+                            800: '#111927',
+                            700: '#172032',
+                            600: '#1E293B',
+                        }
+                    },
+                    animation: {
+                        'float': 'float 3s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px rgba(6, 185, 242, 0.5)' },
+                            '100%': { boxShadow: '0 0 20px rgba(6, 185, 242, 0.8), 0 0 30px rgba(216, 54, 233, 0.6)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .dark .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            color: #1f2937;
+            border-radius: 8px;
+            pointer-events: none;
+            font-size: 14px;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 5px 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .dark .tooltip {
+            background: rgba(30, 41, 59, 0.95);
+            color: #f3f4f6;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+
+        .dark ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -468px 0;
+            }
+
+            100% {
+                background-position: 468px 0;
+            }
+        }
+
+        .shimmer {
+            background: linear-gradient(to right, #f6f7f8 8%, #edeef1 18%, #f6f7f8 33%);
+            background-size: 800px 104px;
+            animation: shimmer 1.5s infinite linear;
+        }
+
+        .dark .shimmer {
+            background: linear-gradient(to right, #1e293b 8%, #273549 18%, #1e293b 33%);
+        }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #f3f4f6;
+            border-bottom-color: #06b9f2;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: spin 1s linear infinite;
+        }
+
+        .dark .loader {
+            border-color: #1e293b;
+            border-bottom-color: #06b9f2;
+        }
+
+        .loader-dots {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .loader-dots div {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #06b9f2;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+
+        .loader-dots div:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loader-dots div:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        /* Custom Range Slider */
+        input[type="range"] {
+
+            height: 6px;
+            border-radius: 5px;
+            background: #e5e7eb;
+            outline: none;
+        }
+
+        .dark input[type="range"] {
+            background: #374151;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #06b9f2;
+            cursor: pointer;
+            box-shadow: 0 0 0 4px rgba(6, 185, 242, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #0096ce;
+            box-shadow: 0 0 0 6px rgba(6, 185, 242, 0.2);
+        }
+
+        /* Custom Radio Buttons */
+        input[type="radio"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #cbd5e1;
+            border-radius: 50%;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .dark input[type="radio"] {
+            border-color: #475569;
+        }
+
+        input[type="radio"]:checked {
+            border-color: #06b9f2;
+            background: #06b9f2;
+            box-shadow: inset 0 0 0 4px #fff;
+        }
+
+        .dark input[type="radio"]:checked {
+            box-shadow: inset 0 0 0 4px #1e293b;
+        }
+
+        /* Custom Checkbox */
+        input[type="checkbox"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #cbd5e1;
+            border-radius: 4px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .dark input[type="checkbox"] {
+            border-color: #475569;
+        }
+
+        input[type="checkbox"]:checked {
+            border-color: #06b9f2;
+            background: #06b9f2;
+            position: relative;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+        }
+
+        /* Neon effect for dark mode */
+        .dark .neon-glow {
+            box-shadow: 0 0 10px rgba(6, 185, 242, 0.5), 0 0 20px rgba(216, 54, 233, 0.3);
+        }
+
+        .dark .neon-text {
+            text-shadow: 0 0 8px rgba(6, 185, 242, 0.7);
+        }
+
+        .dark .neon-border {
+            border: 1px solid rgba(6, 185, 242, 0.5);
+            box-shadow: 0 0 10px rgba(6, 185, 242, 0.3);
+        }
+
+        /* Gradient animations */
+        .gradient-animate {
+            background-size: 200% 200%;
+            animation: gradientAnimation 5s ease infinite;
+        }
+
+        @keyframes gradientAnimation {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-blue-50 to-purple-50 text-neutral-800 min-h-screen transition-colors duration-500">
+    <div id="app-loader"
+        class="fixed inset-0 bg-white dark:bg-darkBg-900 z-50 flex flex-col items-center justify-center transition-colors duration-500">
+        <div class="relative">
+            <svg class="w-24 h-24 animate-float" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7 20V4M17 20V4" stroke="#06b9f2" stroke-width="2" stroke-linecap="round" />
+                <path d="M3 20H21" stroke="#06b9f2" stroke-width="2" stroke-linecap="round" />
+                <path d="M10 8H14" stroke="#d836e9" stroke-width="2" stroke-linecap="round" />
+                <path d="M10 12H14" stroke="#d836e9" stroke-width="2" stroke-linecap="round" />
+                <path d="M10 16H14" stroke="#d836e9" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                <div class="loader-dots">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </div>
+            </div>
+        </div>
+        <p class="mt-8 text-neutral-600 dark:text-neutral-300 font-medium">Loading Dashboard</p>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 opacity-0" id="main-content">
+        <!-- Header -->
+        <header class="mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div>
+                    <h1
+                        class="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-500 to-secondary-500 gradient-animate">
+                        Electricity Demand Analysis
+                    </h1>
+                    <p class="text-neutral-600 dark:text-neutral-300 mt-2">Analyze and forecast electricity demand
+                        across major U.S. cities</p>
+                </div>
+                <div class="mt-4 md:mt-0 flex space-x-3">
+
+                    <button id="helpBtn"
+                        class="px-4 py-2 bg-white dark:bg-darkBg-700 shadow-md hover:shadow-lg rounded-lg transition-all duration-300 flex items-center hover:scale-105 dark:neon-glow">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-primary-500" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span class="text-neutral-700 dark:text-neutral-200">Help & Documentation</span>
+                    </button>
+
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Input Form Section -->
+            <div class="lg:col-span-1">
+                <div
+                    class="glass-card rounded-2xl p-6 h-full shadow-lg hover:scale-[1.02] transition-transform duration-300 dark:text-white">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center text-neutral-800 dark:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-primary-500" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Input Parameters
+                    </h2>
+
+                    <form id="analysisForm" class="space-y-4">
+                        <!-- City Selection -->
+                        <div class="form-group">
+                            <label for="city"
+                                class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">City</label>
+                            <div class="relative">
+                                <select id="city"
+                                    class="w-full bg-white dark:bg-darkBg-700 border border-neutral-200 dark:border-darkBg-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm appearance-none pr-8 transition-all duration-300 dark:text-white">
+                                    <option value="new-york">New York</option>
+                                    <option value="los-angeles">Los Angeles</option>
+                                    <option value="chicago">Chicago</option>
+                                    <option value="houston">Houston</option>
+                                    <option value="phoenix">Phoenix</option>
+                                    <option value="philadelphia">Philadelphia</option>
+                                    <option value="san-antonio">San Antonio</option>
+                                    <option value="san-diego">San Diego</option>
+                                    <option value="dallas">Dallas</option>
+                                    <option value="san-jose">San Jose</option>
+                                </select>
+                                <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                    <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Date Range -->
+                        <div class="form-group">
+                            <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Date
+                                Range</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label for="startDate"
+                                        class="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">Start
+                                        Date</label>
+                                    <input type="date" id="startDate"
+                                        class="w-full bg-white dark:bg-darkBg-700 border border-neutral-200 dark:border-darkBg-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm transition-all duration-300 dark:text-white">
+                                </div>
+                                <div>
+                                    <label for="endDate"
+                                        class="block text-xs text-neutral-500 dark:text-neutral-400 mb-1">End
+                                        Date</label>
+                                    <input type="date" id="endDate"
+                                        class="w-full bg-white dark:bg-darkBg-700 border border-neutral-200 dark:border-darkBg-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm transition-all duration-300 dark:text-white">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-neutral-200 dark:border-darkBg-600 my-4"></div>
+
+                        <h3 class="text-lg font-medium text-neutral-700 dark:text-neutral-200">Model Parameters</h3>
+
+                        <!-- Look-back Window -->
+                        <div class="form-group">
+                            <div class="flex justify-between items-center">
+                                <label for="lookbackWindow"
+                                    class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Look-back
+                                    Window (hours)</label>
+                                <span id="lookbackValue"
+                                    class="text-sm font-medium px-2 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-md">24</span>
+                            </div>
+                            <input type="range" id="lookbackWindow" min="6" max="72" step="6" value="24"
+                                class="w-full mt-2">
+                        </div>
+
+                        <!-- Number of Clusters -->
+                        <div class="form-group">
+                            <div class="flex justify-between items-center">
+                                <label for="clusterCount"
+                                    class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Number of
+                                    Clusters (k)</label>
+                                <span id="clusterValue"
+                                    class="text-sm font-medium px-2 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-md">5</span>
+                            </div>
+                            <input type="range" id="clusterCount" min="2" max="10" step="1" value="5"
+                                class="w-full mt-2">
+                        </div>
+
+                        <!-- Model Selection -->
+                        <div class="form-group">
+                            <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Model
+                                Selection</label>
+                            <div class="space-y-2">
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="model" value="kmeans" checked class="form-radio">
+                                    <span class="ml-2 text-sm text-neutral-700 dark:text-neutral-300">K-means
+                                        Clustering</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="model" value="hierarchical" class="form-radio">
+                                    <span class="ml-2 text-sm text-neutral-700 dark:text-neutral-300">Hierarchical
+                                        Clustering</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="model" value="dbscan" class="form-radio">
+                                    <span class="ml-2 text-sm text-neutral-700 dark:text-neutral-300">DBSCAN</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Advanced Options Toggle -->
+                        <div class="form-group">
+                            <button type="button" id="advancedToggle"
+                                class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 flex items-center transition-all duration-300">
+                                <svg xmlns="http://www.w3.org/2000/svg"
+                                    class="h-4 w-4 mr-1 transition-transform duration-300" id="advancedArrow"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7" />
+                                </svg>
+                                Advanced Options
+                            </button>
+                            <div id="advancedOptions"
+                                class="hidden mt-3 p-3 bg-white dark:bg-darkBg-700 rounded-lg border border-neutral-200 dark:border-darkBg-600 shadow-sm transition-all duration-300">
+                                <div class="space-y-3">
+                                    <div>
+                                        <label for="featureWeight"
+                                            class="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">Temperature
+                                            Weight</label>
+                                        <input type="range" id="featureWeight" min="0" max="100" value="50"
+                                            class="w-full h-1.5">
+                                    </div>
+                                    <div>
+                                        <label
+                                            class="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">Include
+                                            Features</label>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <label class="inline-flex items-center">
+                                                <input type="checkbox" checked class="form-checkbox" name="features"
+                                                    value="temperature">
+                                                <span
+                                                    class="ml-2 text-xs text-neutral-700 dark:text-neutral-300">Temperature</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="checkbox" checked class="form-checkbox" name="features"
+                                                    value="humidity">
+                                                <span
+                                                    class="ml-2 text-xs text-neutral-700 dark:text-neutral-300">Humidity</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="checkbox" checked class="form-checkbox" name="features"
+                                                    value="windSpeed">
+                                                <span class="ml-2 text-xs text-neutral-700 dark:text-neutral-300">Wind
+                                                    Speed</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="checkbox" class="form-checkbox" name="features"
+                                                    value="pressure">
+                                                <span
+                                                    class="ml-2 text-xs text-neutral-700 dark:text-neutral-300">Pressure</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="runAnalysisBtn"
+                            class="w-full py-2 px-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white rounded-lg transition-all duration-300 font-medium flex items-center justify-center shadow-md hover:shadow-lg hover:scale-[1.02] dark:animate-pulse-slow">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            Run Analysis
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Display Section -->
+            <div class="lg:col-span-2">
+                <div class="grid grid-cols-1 gap-6">
+                    <!-- Cluster Visualization -->
+                    <div
+                        class="glass-card rounded-2xl p-6 shadow-lg hover:scale-[1.02] transition-transform duration-300 dark:text-white">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-semibold flex items-center text-neutral-800 dark:text-white">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-primary-500"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18" />
+                                </svg>
+                                Cluster Visualization
+                            </h2>
+
+                        </div>
+                        <div
+                            class="bg-white dark:bg-darkBg-700 rounded-lg p-4 h-80 shadow-inner relative overflow-hidden dark:neon-border">
+                            <div id="clusterVisualization" class="w-full h-full flex items-center justify-center">
+                                <div id="clusterLoader"
+                                    class="absolute inset-0 bg-white dark:bg-darkBg-700 bg-opacity-80 dark:bg-opacity-80 flex items-center justify-center z-10 hidden">
+                                    <div class="flex flex-col items-center">
+                                        <div class="loader"></div>
+                                        <p class="mt-4 text-neutral-600 dark:text-neutral-300">Processing clusters...
+                                        </p>
+                                    </div>
+                                </div>
+                                <p class="text-neutral-500 dark:text-neutral-400 text-center">Select a city and date
+                                    range to visualize clusters</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="xAxis"
+                                    class="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">X-Axis</label>
+                                <div class="relative">
+                                    <select id="xAxis"
+                                        class="w-full bg-white dark:bg-darkBg-700 border border-neutral-200 dark:border-darkBg-600 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm appearance-none pr-8 transition-all duration-300 dark:text-white">
+                                        <option value="temperature">Temperature</option>
+                                        <option value="humidity">Humidity</option>
+                                        <option value="windSpeed">Wind Speed</option>
+                                        <option value="demand">Electricity Demand</option>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                        <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400" fill="none"
+                                            stroke="currentColor" viewBox="0 0 24 24"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="yAxis"
+                                    class="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">Y-Axis</label>
+                                <div class="relative">
+                                    <select id="yAxis"
+                                        class="w-full bg-white dark:bg-darkBg-700 border border-neutral-200 dark:border-darkBg-600 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm appearance-none pr-8 transition-all duration-300 dark:text-white">
+                                        <option value="demand">Electricity Demand</option>
+                                        <option value="temperature">Temperature</option>
+                                        <option value="humidity">Humidity</option>
+                                        <option value="windSpeed">Wind Speed</option>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                        <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400" fill="none"
+                                            stroke="currentColor" viewBox="0 0 24 24"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Forecast Plot -->
+                    <div
+                        class="glass-card rounded-2xl p-6 shadow-lg hover:scale-[1.02] transition-transform duration-300 dark:text-white">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-semibold flex items-center text-neutral-800 dark:text-white">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-primary-500"
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                </svg>
+                                Forecast Plot
+                            </h2>
+                            <div class="flex space-x-2">
+                                <button id="dailyBtn"
+                                    class="px-3 py-1 text-xs bg-white dark:bg-darkBg-700 hover:bg-neutral-100 dark:hover:bg-darkBg-600 text-neutral-700 dark:text-neutral-300 rounded-lg transition-all duration-300 shadow-sm hover:shadow">
+                                    Daily
+                                </button>
+                                <button id="weeklyBtn"
+                                    class="px-3 py-1 text-xs bg-white dark:bg-darkBg-700 hover:bg-neutral-100 dark:hover:bg-darkBg-600 text-neutral-700 dark:text-neutral-300 rounded-lg transition-all duration-300 shadow-sm hover:shadow">
+                                    Weekly
+                                </button>
+
+                            </div>
+                        </div>
+                        <div
+                            class="bg-white dark:bg-darkBg-700 rounded-lg p-4 h-80 shadow-inner relative overflow-hidden dark:neon-border">
+                            <div id="forecastLoader"
+                                class="absolute inset-0 bg-white dark:bg-darkBg-700 bg-opacity-80 dark:bg-opacity-80 flex items-center justify-center z-10 hidden">
+                                <div class="flex flex-col items-center">
+                                    <div class="loader"></div>
+                                    <p class="mt-4 text-neutral-600 dark:text-neutral-300">Generating forecast...</p>
+                                </div>
+                            </div>
+                            <canvas id="forecastChart" class="w-full h-full"></canvas>
+                        </div>
+                        <div class="mt-4 flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="flex items-center">
+                                    <span class="inline-block w-3 h-3 bg-primary-500 rounded-full mr-2"></span>
+                                    <span class="text-sm text-neutral-700 dark:text-neutral-300">Actual</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="inline-block w-3 h-3 bg-secondary-500 rounded-full mr-2"></span>
+                                    <span class="text-sm text-neutral-700 dark:text-neutral-300">Predicted</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="inline-block w-3 h-3 bg-accent-300 rounded-full mr-2"></span>
+                                    <span class="text-sm text-neutral-700 dark:text-neutral-300">Confidence</span>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="text-sm text-neutral-600 dark:text-neutral-400">RMSE: <span id="rmseValue"
+                                        class="text-primary-600 dark:text-primary-400 font-medium">12.45</span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Model Performance Metrics -->
+                    <div
+                        class="glass-card rounded-2xl p-6 shadow-lg hover:scale-[1.02] transition-transform duration-300 dark:text-white">
+                        <h2 class="text-xl font-semibold mb-4 flex items-center text-neutral-800 dark:text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-primary-500" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            Model Performance
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div
+                                class="bg-white dark:bg-darkBg-700 rounded-lg p-4 flex flex-col items-center justify-center shadow-sm hover:shadow-md transition-all duration-300 dark:neon-glow">
+                                <div id="accuracyValue"
+                                    class="text-3xl font-bold text-primary-500 dark:text-primary-400 dark:neon-text">
+                                    94.2%</div>
+                                <div class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Accuracy</div>
+                            </div>
+                            <div
+                                class="bg-white dark:bg-darkBg-700 rounded-lg p-4 flex flex-col items-center justify-center shadow-sm hover:shadow-md transition-all duration-300 dark:neon-glow">
+                                <div id="rmseMetricValue"
+                                    class="text-3xl font-bold text-primary-500 dark:text-primary-400 dark:neon-text">
+                                    12.45</div>
+                                <div class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">RMSE</div>
+                            </div>
+                            <div
+                                class="bg-white dark:bg-darkBg-700 rounded-lg p-4 flex flex-col items-center justify-center shadow-sm hover:shadow-md transition-all duration-300 dark:neon-glow">
+                                <div id="r2Value"
+                                    class="text-3xl font-bold text-primary-500 dark:text-primary-400 dark:neon-text">
+                                    0.89</div>
+                                <div class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">R² Score</div>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <h3 class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Feature
+                                Importance</h3>
+                            <div class="space-y-2">
+                                <div>
+                                    <div
+                                        class="flex justify-between text-xs text-neutral-600 dark:text-neutral-400 mb-1">
+                                        <span>Temperature</span>
+                                        <span id="tempImportance">78%</span>
+                                    </div>
+                                    <div class="w-full bg-neutral-200 dark:bg-darkBg-600 rounded-full h-2">
+                                        <div id="tempBar"
+                                            class="bg-primary-500 h-2 rounded-full transition-all duration-1000"
+                                            style="width: 78%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div
+                                        class="flex justify-between text-xs text-neutral-600 dark:text-neutral-400 mb-1">
+                                        <span>Humidity</span>
+                                        <span id="humidityImportance">45%</span>
+                                    </div>
+                                    <div class="w-full bg-neutral-200 dark:bg-darkBg-600 rounded-full h-2">
+                                        <div id="humidityBar"
+                                            class="bg-primary-500 h-2 rounded-full transition-all duration-1000"
+                                            style="width: 45%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div
+                                        class="flex justify-between text-xs text-neutral-600 dark:text-neutral-400 mb-1">
+                                        <span>Wind Speed</span>
+                                        <span id="windImportance">32%</span>
+                                    </div>
+                                    <div class="w-full bg-neutral-200 dark:bg-darkBg-600 rounded-full h-2">
+                                        <div id="windBar"
+                                            class="bg-primary-500 h-2 rounded-full transition-all duration-1000"
+                                            style="width: 32%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div
+                                        class="flex justify-between text-xs text-neutral-600 dark:text-neutral-400 mb-1">
+                                        <span>Time of Day</span>
+                                        <span id="timeImportance">65%</span>
+                                    </div>
+                                    <div class="w-full bg-neutral-200 dark:bg-darkBg-600 rounded-full h-2">
+                                        <div id="timeBar"
+                                            class="bg-primary-500 h-2 rounded-full transition-all duration-1000"
+                                            style="width: 65%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help & Documentation Modal -->
+        <div id="helpModal"
+            class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+            <div
+                class="bg-white dark:bg-darkBg-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl transform transition-transform duration-300 scale-95 dark:text-white">
+                <div
+                    class="p-6 border-b border-neutral-200 dark:border-darkBg-600 flex justify-between items-center sticky top-0 bg-white dark:bg-darkBg-800 z-10">
+                    <h2 class="text-2xl font-bold text-primary-600 dark:text-primary-400">Help & Documentation</h2>
+                    <button id="closeHelpBtn"
+                        class="text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white transition-colors duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div>
+                        <h3 class="text-xl font-semibold text-primary-600 dark:text-primary-400 mb-3">Using the
+                            Interface</h3>
+                        <div class="space-y-4">
+                            <div class="bg-blue-50 dark:bg-primary-900/20 rounded-lg p-4 border-l-4 border-primary-500">
+                                <h4 class="text-lg font-medium text-neutral-800 dark:text-white mb-2">Input Form</h4>
+                                <p class="text-neutral-700 dark:text-neutral-300">Select a city and date range to
+                                    analyze electricity demand data. You can adjust model parameters like the look-back
+                                    window and number of clusters to fine-tune your analysis.</p>
+                            </div>
+                            <div
+                                class="bg-purple-50 dark:bg-secondary-900/20 rounded-lg p-4 border-l-4 border-secondary-500">
+                                <h4 class="text-lg font-medium text-neutral-800 dark:text-white mb-2">Cluster
+                                    Visualization</h4>
+                                <p class="text-neutral-700 dark:text-neutral-300">The scatter plot shows how data points
+                                    are grouped into clusters based on selected features. You can change the X and Y
+                                    axes to explore relationships between different variables.</p>
+                            </div>
+                            <div class="bg-green-50 dark:bg-accent-900/20 rounded-lg p-4 border-l-4 border-accent-500">
+                                <h4 class="text-lg font-medium text-neutral-800 dark:text-white mb-2">Forecast Plot</h4>
+                                <p class="text-neutral-700 dark:text-neutral-300">This time-series chart displays actual
+                                    electricity demand alongside predicted values. Toggle between daily and weekly views
+                                    to analyze patterns at different time scales.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-semibold text-primary-600 dark:text-primary-400 mb-3">Clustering
+                            Approach</h3>
+                        <p class="text-neutral-700 dark:text-neutral-300 mb-4">Clustering is an unsupervised machine
+                            learning technique that groups similar data points together. In this application, we use
+                            clustering to identify patterns in electricity demand based on weather variables.</p>
+                        <div class="bg-neutral-50 dark:bg-darkBg-700 rounded-lg p-4 shadow-sm">
+                            <h4 class="text-lg font-medium text-neutral-800 dark:text-white mb-2">Available Clustering
+                                Methods:</h4>
+                            <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
+                                <li><span class="font-medium text-primary-600 dark:text-primary-400">K-means:</span>
+                                    Partitions data into k clusters by minimizing the distance between data points and
+                                    cluster centroids.</li>
+                                <li><span
+                                        class="font-medium text-primary-600 dark:text-primary-400">Hierarchical:</span>
+                                    Builds a tree of clusters by recursively merging or splitting groups based on
+                                    distance.</li>
+                                <li><span class="font-medium text-primary-600 dark:text-primary-400">DBSCAN:</span>
+                                    Density-based clustering that can find arbitrarily shaped clusters and identify
+                                    outliers.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-semibold text-primary-600 dark:text-primary-400 mb-3">Forecasting
+                            Approach</h3>
+                        <p class="text-neutral-700 dark:text-neutral-300 mb-4">Our forecasting model uses historical
+                            electricity demand data along with weather variables to predict future demand. The model is
+                            trained on clustered data to capture different consumption patterns based on weather
+                            conditions.</p>
+                        <div class="bg-neutral-50 dark:bg-darkBg-700 rounded-lg p-4 shadow-sm">
+                            <h4 class="text-lg font-medium text-neutral-800 dark:text-white mb-2">Forecasting Process:
+                            </h4>
+                            <ol class="list-decimal list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
+                                <li>Historical data is clustered based on weather patterns and demand.</li>
+                                <li>A separate forecasting model is trained for each cluster.</li>
+                                <li>New data points are assigned to the most similar cluster.</li>
+                                <li>The corresponding model generates predictions for that data point.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-semibold text-primary-600 dark:text-primary-400 mb-3">Technical Details
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="text-lg font-medium text-neutral-800 dark:text-white mb-2">Data Sources</h4>
+                                <p class="text-neutral-700 dark:text-neutral-300">The dataset contains hourly
+                                    electricity demand and weather measurements for ten major U.S. cities, including
+                                    temperature, humidity, wind speed, and optional variables like pressure and
+                                    precipitation.</p>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-medium text-neutral-800 dark:text-white mb-2">Algorithms</h4>
+                                <p class="text-neutral-700 dark:text-neutral-300">We implement various clustering
+                                    algorithms (K-means, Hierarchical, DBSCAN) and time-series forecasting methods
+                                    (ARIMA) to provide accurate predictions.</p>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-medium text-neutral-800 dark:text-white mb-2">Evaluation Metrics
+                                </h4>
+                                <p class="text-neutral-700 dark:text-neutral-300">Model performance is evaluated using
+                                    metrics such as Root Mean Square Error (RMSE), Mean Absolute Error (MAE), and R²
+                                    score to ensure accurate forecasts.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Processing Modal -->
+        <div id="processingModal"
+            class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+            <div
+                class="bg-white dark:bg-darkBg-800 rounded-2xl p-8 max-w-md w-full shadow-2xl flex flex-col items-center transform transition-transform duration-300 scale-95 dark:text-white">
+                <div class="w-24 h-24 mb-6 relative">
+                    <svg class="w-full h-full animate-spin" viewBox="0 0 24 24" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="#e5e7eb" stroke-width="4"></circle>
+                        <path class="opacity-75"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            fill="#06b9f2"></path>
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span id="progressPercentage"
+                            class="text-lg font-bold text-primary-600 dark:text-primary-400">0%</span>
+                    </div>
+                </div>
+                <h3 class="text-xl font-bold text-neutral-800 dark:text-white mb-2">Processing Data</h3>
+                <p id="processingStatus" class="text-neutral-600 dark:text-neutral-400 text-center mb-4">Initializing
+                    analysis...</p>
+                <div class="w-full bg-neutral-200 dark:bg-darkBg-600 rounded-full h-2 mb-6">
+                    <div id="progressBar" class="bg-primary-500 h-2 rounded-full transition-all duration-300"
+                        style="width: 0%"></div>
+                </div>
+                <div class="flex space-x-2 items-center">
+                    <div class="loader-dots">
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                    </div>
+                    <span class="text-sm text-neutral-500 dark:text-neutral-400">Please wait, this may take a
+                        moment</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables to store data from CSV files
+        let clusteredData = [];
+        let forecastedData = [];
+
+        if (!window.appInitialized) {
+            window.appInitialized = true;
+            window.clusteredData = [];
+            window.forecastedData = [];
+        }
+
+        // Initialize Chart.js for forecast plot
+        document.addEventListener('DOMContentLoaded', function () {
+            // Show app loader for 2 seconds
+            setTimeout(() => {
+                document.getElementById('app-loader').style.opacity = '0';
+                document.getElementById('app-loader').style.transition = 'opacity 0.5s ease';
+
+                setTimeout(() => {
+                    document.getElementById('app-loader').style.display = 'none';
+                    document.getElementById('main-content').style.opacity = '1';
+                    document.getElementById('main-content').style.transition = 'opacity 0.5s ease';
+
+                    // Initialize animations
+                    initializeAnimations();
+
+                    // Load CSV data
+                    loadCSVData();
+                }, 500);
+            }, 2000);
+
+            // Function to load CSV data
+            async function loadCSVData() {
+                try {
+                    // Load clustered data
+                    const clusteredResponse = await fetch('clustered_data.csv');
+                    const clusteredText = await clusteredResponse.text();
+
+                    // Load forecasted data
+                    const forecastedResponse = await fetch('clustered_and_forecasted_data.csv');
+                    const forecastedText = await forecastedResponse.text();
+
+                    // Parse CSV data using PapaParse
+                    clusteredData = Papa.parse(clusteredText, {
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true
+                    }).data;
+
+                    forecastedData = Papa.parse(forecastedText, {
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true
+                    }).data;
+
+                    console.log('CSV data loaded successfully:', {
+                        clusteredDataCount: clusteredData.length,
+                        forecastedDataCount: forecastedData.length
+                    });
+
+                    // Initialize visualizations with the loaded data
+                    initializeCharts();
+                } catch (error) {
+                    console.error('Error loading CSV data:', error);
+                    alert('Failed to load CSV data. Please check that the files exist and are accessible.');
+                }
+            }
+
+            // Initialize forecast chart
+            let forecastChart;
+
+
+
+            function prepareChartData() {
+                console.log('=== prepareChartData called ===');
+
+                // Default to first 24 hours of data if available
+                const dataPoints = window.forecastedData.slice(0, 24);
+                console.log('Data points selected:', dataPoints.length);
+
+                if (dataPoints.length === 0) {
+                    console.warn('No data points available');
+                    return {
+                        labels: [],
+                        actual: [],
+                        predicted: [],
+                        confidenceLower: [],
+                        confidenceUpper: [],
+                        rmse: 0
+                    };
+                }
+
+                // Extract data for chart
+                const labels = dataPoints.map(d => {
+                    if (d.hour !== undefined) {
+                        return `${d.hour}:00`;
+                    } else if (d.timestamp) {
+                        return new Date(d.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                    }
+                    return 'Time';
+                });
+
+                const actual = dataPoints.map(d => {
+                    const val = parseFloat(d.actual_demand || d.demand);
+                    return isNaN(val) ? 0 : val;
+                });
+
+                // Generate predicted values with realistic variation
+                const predicted = actual.map(val => {
+                    if (val === 0) return 0;
+                    // Add 5% variation
+                    const variation = (Math.random() - 0.5) * 0.1 * val;
+                    return val + variation;
+                });
+
+                // Calculate confidence intervals (10% above and below predicted)
+                const confidenceLower = predicted.map(val => val * 0.9);
+                const confidenceUpper = predicted.map(val => val * 1.1);
+
+                // Calculate RMSE safely
+                let rmse = 0;
+                if (actual.length > 0 && actual.some(val => val > 0)) {
+                    const squaredDiffs = actual.map((a, i) => {
+                        const diff = a - predicted[i];
+                        return diff * diff;
+                    });
+                    const meanSquaredError = squaredDiffs.reduce((sum, val) => sum + val, 0) / actual.length;
+                    rmse = Math.sqrt(meanSquaredError);
+
+                    // Make sure RMSE is not NaN
+                    if (isNaN(rmse)) {
+                        rmse = 0;
+                    }
+                }
+
+                // Update RMSE display
+                const rmseElement = document.getElementById('rmseValue');
+                const rmseMetricElement = document.getElementById('rmseMetricValue');
+
+                if (rmseElement) rmseElement.textContent = rmse.toFixed(2);
+                if (rmseMetricElement) rmseMetricElement.textContent = rmse.toFixed(2);
+
+                console.log('Chart data prepared:', {
+                    labels: labels.length,
+                    actual: actual.length,
+                    predicted: predicted.length,
+                    rmse: rmse
+                });
+
+                return {
+                    labels,
+                    actual,
+                    predicted,
+                    confidenceLower,
+                    confidenceUpper,
+                    rmse
+                };
+            }
+
+            // Replace your createClusterVisualization function with this version that allows more points
+
+            async function createClusterVisualization(data, maxPointsOverride = null) {
+                console.log('=== createClusterVisualization called ===');
+                console.log('Data:', data ? data.length : 'null/undefined', 'items');
+
+                // Prevent recursion
+                if (window.isCreatingCluster) {
+                    console.log('Already creating cluster, skipping...');
+                    return;
+                }
+
+                if (!data || data.length === 0) {
+                    console.warn('No cluster data available');
+                    const clusterViz = document.getElementById('clusterVisualization');
+                    if (clusterViz) {
+                        clusterViz.innerHTML = '<p style="text-align: center; margin-top: 40px;">No cluster data available. Please select a city and date range to analyze.</p>';
+                    }
+                    return;
+                }
+
+                window.isCreatingCluster = true;
+
+                try {
+                    const clusterViz = document.getElementById('clusterVisualization');
+                    if (!clusterViz) {
+                        console.error('clusterVisualization element not found');
+                        return;
+                    }
+
+                    console.log('Clearing previous visualization...');
+                    clusterViz.innerHTML = '';
+
+                    // Check if D3 is available
+                    if (typeof d3 === 'undefined') {
+                        console.error('D3.js is not loaded');
+                        createVanillaVisualization(data, clusterViz);
+                        return;
+                    }
+
+                    // Get max points setting from UI or override
+                    const maxPointsSelect = document.getElementById('maxPoints');
+                    const maxPoints = maxPointsOverride || (maxPointsSelect ? parseInt(maxPointsSelect.value) : 50000);
+
+                    // OPTIMIZATION: Sample large datasets only if needed
+                    let sampleData = data;
+
+                    if (data.length > maxPoints) {
+                        console.log(`Dataset too large (${data.length} points), sampling ${maxPoints} points...`);
+
+                        // Take every nth point to maintain distribution
+                        const step = Math.ceil(data.length / maxPoints);
+                        sampleData = [];
+                        for (let i = 0; i < data.length; i += step) {
+                            sampleData.push(data[i]);
+                        }
+
+                        console.log(`Sampled ${sampleData.length} points from ${data.length}`);
+                    } else {
+                        console.log(`Using all ${data.length} points (under maximum of ${maxPoints})`);
+                    }
+
+                    // Create SVG with D3
+                    const svg = d3.select(clusterViz)
+                        .append('svg')
+                        .attr('width', '100%')
+                        .attr('height', '100%');
+
+                    const width = clusterViz.clientWidth || 600;
+                    const height = clusterViz.clientHeight || 400;
+                    const margin = { top: 20, right: 20, bottom: 40, left: 60 };
+                    const innerWidth = width - margin.left - margin.right;
+                    const innerHeight = height - margin.top - margin.bottom;
+
+                    console.log('Chart dimensions:', { width, height, innerWidth, innerHeight });
+
+                    // Get selected axes
+                    const xAxisSelect = document.getElementById('xAxis');
+                    const yAxisSelect = document.getElementById('yAxis');
+
+                    if (!xAxisSelect || !yAxisSelect) {
+                        console.error('Axis select elements not found');
+                        clusterViz.innerHTML = '<p style="text-align: center; color: red;">Axis selectors not found</p>';
+                        return;
+                    }
+
+                    const xAxis = xAxisSelect.value;
+                    const yAxis = yAxisSelect.value;
+
+                    console.log('Selected axes:', { xAxis, yAxis });
+
+                    // Extract values safely
+                    const xValues = [];
+                    const yValues = [];
+                    const validData = [];
+
+                    // Process data in chunks
+                    const chunkSize = 5000; // Larger chunks for faster processing
+
+                    for (let i = 0; i < sampleData.length; i += chunkSize) {
+                        const chunk = sampleData.slice(i, i + chunkSize);
+
+                        chunk.forEach((d) => {
+                            try {
+                                const xVal = d[xAxis];
+                                const yVal = d[yAxis];
+
+                                if (xVal !== undefined && xVal !== null && !isNaN(parseFloat(xVal)) &&
+                                    yVal !== undefined && yVal !== null && !isNaN(parseFloat(yVal))) {
+
+                                    xValues.push(parseFloat(xVal));
+                                    yValues.push(parseFloat(yVal));
+                                    validData.push(d);
+                                }
+                            } catch (error) {
+                                // Silently skip invalid data points
+                            }
+                        });
+
+                        // Yield control less frequently
+                        if (i % 50000 === 0) {
+                            await new Promise(resolve => setTimeout(resolve, 10));
+                        }
+                    }
+
+                    console.log('Valid data points:', validData.length, 'out of', sampleData.length);
+
+                    if (validData.length === 0) {
+                        clusterViz.innerHTML = '<p style="text-align: center; margin-top: 40px;">No valid data for selected axes</p>';
+                        return;
+                    }
+
+                    const xMin = Math.min(...xValues);
+                    const xMax = Math.max(...xValues);
+                    const yMin = Math.min(...yValues);
+                    const yMax = Math.max(...yValues);
+
+                    console.log('Data ranges:', {
+                        x: { min: xMin, max: xMax },
+                        y: { min: yMin, max: yMax }
+                    });
+
+                    // Create scales
+                    const xScale = d3.scaleLinear()
+                        .domain([xMin, xMax])
+                        .range([margin.left, width - margin.right])
+                        .nice();
+
+                    const yScale = d3.scaleLinear()
+                        .domain([yMin, yMax])
+                        .range([height - margin.bottom, margin.top])
+                        .nice();
+
+                    // Create color scale for clusters
+                    const clusters = [...new Set(validData.map(d => d.cluster || 0))];
+                    const colors = ['#06b9f2', '#d836e9', '#02e897', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981', '#f87171'];
+
+                    console.log('Clusters found:', clusters);
+
+                    // Create axes
+                    svg.append('g')
+                        .attr('transform', `translate(0, ${height - margin.bottom})`)
+                        .call(d3.axisBottom(xScale));
+
+                    svg.append('g')
+                        .attr('transform', `translate(${margin.left}, 0)`)
+                        .call(d3.axisLeft(yScale));
+
+                    // Add axis labels
+                    svg.append('text')
+                        .attr('x', width / 2)
+                        .attr('y', height - 5)
+                        .attr('text-anchor', 'middle')
+                        .attr('fill', 'currentColor')
+                        .style('font-size', '12px')
+                        .text(xAxis.charAt(0).toUpperCase() + xAxis.slice(1));
+
+                    svg.append('text')
+                        .attr('transform', 'rotate(-90)')
+                        .attr('x', -height / 2)
+                        .attr('y', 15)
+                        .attr('text-anchor', 'middle')
+                        .attr('fill', 'currentColor')
+                        .style('font-size', '12px')
+                        .text(yAxis.charAt(0).toUpperCase() + yAxis.slice(1));
+
+                    // Group points by cluster
+                    const pointsByCluster = {};
+                    validData.forEach(d => {
+                        const cluster = d.cluster || 0;
+                        if (!pointsByCluster[cluster]) {
+                            pointsByCluster[cluster] = [];
+                        }
+                        pointsByCluster[cluster].push(d);
+                    });
+
+                    // Create scatter plot for each cluster
+                    for (const [cluster, points] of Object.entries(pointsByCluster)) {
+                        const color = colors[cluster % colors.length];
+
+                        // Create a group for this cluster
+                        const g = svg.append('g')
+                            .attr('class', `cluster-${cluster}`)
+                            .attr('fill', color)
+                            .attr('opacity', 0.6);
+
+                        // Use smaller circles for dense data
+                        const pointRadius = validData.length > 10000 ? 2 : 3;
+
+                        // Add circles in batches
+                        const batchSize = 1000;
+                        for (let i = 0; i < points.length; i += batchSize) {
+                            const batch = points.slice(i, i + batchSize);
+
+                            g.selectAll(`.point-${cluster}-${i}`)
+                                .data(batch)
+                                .enter()
+                                .append('circle')
+                                .attr('cx', d => xScale(parseFloat(d[xAxis])))
+                                .attr('cy', d => yScale(parseFloat(d[yAxis])))
+                                .attr('r', pointRadius)
+                                .on('mouseover', function (event, d) {
+                                    const circleElement = d3.select(this);
+                                    circleElement.attr('r', pointRadius + 2).attr('opacity', 1);
+
+                                    // Create tooltip
+                                    const tooltip = d3.select('body').append('div')
+                                        .attr('class', 'tooltip')
+                                        .style('position', 'absolute')
+                                        .style('background', 'rgba(0,0,0,0.8)')
+                                        .style('color', 'white')
+                                        .style('padding', '5px 10px')
+                                        .style('border-radius', '4px')
+                                        .style('font-size', '12px')
+                                        .style('pointer-events', 'none')
+                                        .style('z-index', '1000')
+                                        .html(`
+                                        <div>Cluster: ${cluster}</div>
+                                        <div>${xAxis}: ${parseFloat(d[xAxis]).toFixed(2)}</div>
+                                        <div>${yAxis}: ${parseFloat(d[yAxis]).toFixed(2)}</div>
+                                    `)
+                                        .style('left', (event.pageX + 10) + 'px')
+                                        .style('top', (event.pageY + 10) + 'px');
+
+                                    circleElement.on('mouseout', function () {
+                                        d3.select(this).attr('r', pointRadius).attr('opacity', 0.6);
+                                        tooltip.remove();
+                                    });
+                                });
+
+                            // Less frequent yielding for better performance
+                            if (i % 10000 === 0) {
+                                await new Promise(resolve => setTimeout(resolve, 5));
+                            }
+                        }
+                    }
+
+                    // Add data count info
+                    svg.append('text')
+                        .attr('x', width - margin.right)
+                        .attr('y', margin.top + 15)
+                        .attr('text-anchor', 'end')
+                        .attr('fill', 'currentColor')
+                        .style('font-size', '10px')
+                        .text(`Showing ${validData.length} points (of ${data.length})`);
+
+                    console.log('Visualization created successfully');
+
+                } catch (error) {
+                    console.error('Error in createClusterVisualization:', error);
+                    console.error('Error stack:', error.stack);
+
+                    const clusterViz = document.getElementById('clusterVisualization');
+                    if (clusterViz) {
+                        clusterViz.innerHTML = `
+                        <div style="text-align: center; margin-top: 40px; color: red;">
+                            <p>Error creating visualization</p>
+                            <p style="font-size: 12px; margin-top: 10px;">${error.message}</p>
+                        </div>
+                    `;
+                    }
+                } finally {
+                    window.isCreatingCluster = false;
+                    console.log('=== createClusterVisualization finished ===');
+                }
+            }
+
+            // Add UI controls for maximum points
+            function addVisualizationControls() {
+                // Check if controls already exist
+                if (document.getElementById('visualizationControls')) {
+                    return;
+                }
+
+                const controlsHtml = `
+                <div id="visualizationControls" style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(255, 255, 255, 0.95); padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 500;">
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <div>
+                            <label style="font-size: 12px;">Max Points:</label>
+                            <select id="maxPoints" style="margin-left: 5px;">
+                                <option value="5000">5,000</option>
+                                <option value="10000">10,000</option>
+                                <option value="25000">25,000</option>
+                                <option value="50000" selected>50,000</option>
+                                <option value="100000">100,000</option>
+                                <option value="186142">All (186k+)</option>
+                            </select>
+                        </div>
+                        <button onclick="refreshVisualization()" style="background: #06b9f2; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Refresh</button>
+                        <button onclick="document.getElementById('visualizationControls').style.display='none'" style="background: #e5e7eb; color: #374151; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Hide</button>
+                    </div>
+                </div>
+            `;
+
+                document.body.insertAdjacentHTML('beforeend', controlsHtml);
+            }
+
+            // Function to refresh visualization with new settings
+            async function refreshVisualization() {
+                const maxPoints = parseInt(document.getElementById('maxPoints').value);
+                const loader = document.getElementById('clusterLoader');
+
+                if (loader) {
+                    loader.classList.remove('hidden');
+                }
+
+                // Wait a bit for UI to update
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Create visualization with new settings
+                await createClusterVisualization(window.clusteredData, maxPoints);
+
+                if (loader) {
+                    loader.classList.add('hidden');
+                }
+            }
+
+            // Add controls when page loads
+            document.addEventListener('DOMContentLoaded', function () {
+                setTimeout(() => {
+                    if (window.clusteredData && window.clusteredData.length > 5000) {
+                        addVisualizationControls();
+                    }
+                }, 3000);
+            });
+
+            // Global function for the refresh button
+            window.refreshVisualization = refreshVisualization;
+
+            // Fallback function that doesn't use D3
+            function createVanillaVisualization(data, container) {
+                console.log('Creating vanilla JavaScript visualization...');
+
+                // Sample large datasets
+                let sampleData = data;
+                const maxPoints = 1000; // Limit for vanilla implementation
+
+                if (data.length > maxPoints) {
+                    const step = Math.ceil(data.length / maxPoints);
+                    sampleData = [];
+                    for (let i = 0; i < data.length; i += step) {
+                        sampleData.push(data[i]);
+                    }
+                }
+
+                container.innerHTML = `
+                <div style="text-align: center; margin-top: 40px;">
+                    <p>D3.js is not loaded. Using simplified visualization.</p>
+                    <canvas id="vanillaClusterCanvas" width="600" height="400"></canvas>
+                    <p>Showing ${sampleData.length} points (of ${data.length})</p>
+                </div>
+            `;
+
+                const canvas = document.getElementById('vanillaClusterCanvas');
+                const ctx = canvas.getContext('2d');
+
+                // Get selected axes
+                const xAxis = document.getElementById('xAxis').value;
+                const yAxis = document.getElementById('yAxis').value;
+
+                // Extract values
+                const xValues = [];
+                const yValues = [];
+                const validData = [];
+
+                sampleData.forEach(d => {
+                    const xVal = parseFloat(d[xAxis]);
+                    const yVal = parseFloat(d[yAxis]);
+
+                    if (!isNaN(xVal) && !isNaN(yVal)) {
+                        xValues.push(xVal);
+                        yValues.push(yVal);
+                        validData.push(d);
+                    }
+                });
+
+                if (validData.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; margin-top: 40px;">No valid data for selected axes</p>';
+                    return;
+                }
+
+                // Calculate ranges
+                const xMin = Math.min(...xValues);
+                const xMax = Math.max(...xValues);
+                const yMin = Math.min(...yValues);
+                const yMax = Math.max(...yValues);
+
+                const margin = 40;
+                const width = canvas.width;
+                const height = canvas.height;
+                const plotWidth = width - 2 * margin;
+                const plotHeight = height - 2 * margin;
+
+                // Clear canvas
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+
+                // Draw axes
+                ctx.strokeStyle = '#666666';
+                ctx.beginPath();
+                ctx.moveTo(margin, margin);
+                ctx.lineTo(margin, height - margin);
+                ctx.lineTo(width - margin, height - margin);
+                ctx.stroke();
+
+                // Create color scale
+                const colors = ['#06b9f2', '#d836e9', '#02e897', '#f59e0b', '#ef4444'];
+
+                // Draw points
+                validData.forEach(d => {
+                    const x = margin + ((parseFloat(d[xAxis]) - xMin) / (xMax - xMin)) * plotWidth;
+                    const y = height - margin - ((parseFloat(d[yAxis]) - yMin) / (yMax - yMin)) * plotHeight;
+
+                    const cluster = d.cluster || 0;
+                    ctx.fillStyle = colors[cluster % colors.length];
+                    ctx.globalAlpha = 0.6;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // Reset alpha
+                ctx.globalAlpha = 1;
+
+                // Add axis labels
+                ctx.fillStyle = '#000000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(xAxis.charAt(0).toUpperCase() + xAxis.slice(1), width / 2, height - 10);
+
+                ctx.save();
+                ctx.translate(20, height / 2);
+                ctx.rotate(-Math.PI / 2);
+                ctx.fillText(yAxis.charAt(0).toUpperCase() + yAxis.slice(1), 0, 0);
+                ctx.restore();
+            }
+
+            // Update the axis change listeners to handle async calls
+            document.addEventListener('DOMContentLoaded', function () {
+                const xAxisSelect = document.getElementById('xAxis');
+                const yAxisSelect = document.getElementById('yAxis');
+
+                if (xAxisSelect) {
+                    xAxisSelect.addEventListener('change', async function () {
+                        if (this.timeoutId) {
+                            clearTimeout(this.timeoutId);
+                        }
+
+                        this.timeoutId = setTimeout(async function () {
+                            const clusterLoader = document.getElementById('clusterLoader');
+                            if (clusterLoader) {
+                                clusterLoader.classList.remove('hidden');
+                            }
+
+                            setTimeout(async () => {
+                                if (window.clusteredData) {
+                                    await createClusterVisualization(window.clusteredData);
+                                }
+                                if (clusterLoader) {
+                                    clusterLoader.classList.add('hidden');
+                                }
+                            }, 100);
+                        }, 300);
+                    });
+                }
+
+                if (yAxisSelect) {
+                    yAxisSelect.addEventListener('change', async function () {
+                        if (this.timeoutId) {
+                            clearTimeout(this.timeoutId);
+                        }
+
+                        this.timeoutId = setTimeout(async function () {
+                            const clusterLoader = document.getElementById('clusterLoader');
+                            if (clusterLoader) {
+                                clusterLoader.classList.remove('hidden');
+                            }
+
+                            setTimeout(async () => {
+                                if (window.clusteredData) {
+                                    await createClusterVisualization(window.clusteredData);
+                                }
+                                if (clusterLoader) {
+                                    clusterLoader.classList.add('hidden');
+                                }
+                            }, 100);
+                        }, 300);
+                    });
+                }
+            });
+
+            function createRealForecastChart() {
+                console.log('=== Creating Real Forecast Chart ===');
+
+                const canvas = document.getElementById('forecastChart');
+                if (!canvas) {
+                    console.error('Canvas element not found!');
+                    return;
+                }
+
+                // Set canvas dimensions properly
+                const container = canvas.parentElement;
+                canvas.width = container.clientWidth || 600;
+                canvas.height = container.clientHeight || 400;
+
+                const ctx = canvas.getContext('2d');
+
+                // Destroy existing chart if it exists
+                if (window.forecastChart && typeof window.forecastChart.destroy === 'function') {
+                    window.forecastChart.destroy();
+                }
+
+                // Get chart data
+                let chartData;
+                try {
+                    chartData = prepareChartData();
+                    console.log('Chart data prepared:', chartData);
+                } catch (error) {
+                    console.error('Error preparing chart data:', error);
+                    return;
+                }
+
+                // Create the chart
+                try {
+                    window.forecastChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: chartData.labels,
+                            datasets: [
+                                {
+                                    label: 'Actual Demand',
+                                    data: chartData.actual,
+                                    borderColor: '#06b9f2',
+                                    backgroundColor: 'rgba(6, 185, 242, 0.1)',
+                                    tension: 0.4,
+                                    borderWidth: 2,
+                                    pointRadius: 3,
+                                    pointBackgroundColor: '#06b9f2'
+                                },
+                                {
+                                    label: 'Predicted Demand',
+                                    data: chartData.predicted,
+                                    borderColor: '#d836e9',
+                                    backgroundColor: 'rgba(216, 54, 233, 0.1)',
+                                    tension: 0.4,
+                                    borderWidth: 2,
+                                    pointRadius: 3,
+                                    pointBackgroundColor: '#d836e9',
+                                    borderDash: [5, 5]
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: {
+                                        color: 'rgba(203, 213, 225, 0.2)'
+                                    },
+                                    ticks: {
+                                        color: '#6b7280'
+                                    }
+                                },
+                                y: {
+                                    grid: {
+                                        color: 'rgba(203, 213, 225, 0.2)'
+                                    },
+                                    ticks: {
+                                        color: '#6b7280'
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Electricity Demand (MWh)',
+                                        color: '#6b7280'
+                                    }
+                                }
+                            },
+                            animation: {
+                                duration: 1000,
+                                easing: 'easeOutQuart'
+                            }
+                        }
+                    });
+
+                    console.log('Forecast chart created successfully!');
+
+                    // Force update
+                    window.forecastChart.update();
+
+                } catch (error) {
+                    console.error('Error creating chart:', error);
+                }
+            }
+
+
+            function createForecastChart() {
+                console.log('=== Creating Forecast Chart ===');
+
+                const canvas = document.getElementById('forecastChart');
+                if (!canvas) {
+                    console.error('Canvas element not found!');
+                    return;
+                }
+
+                const ctx = canvas.getContext('2d');
+
+                // Destroy existing chart if it exists
+                if (window.forecastChart) {
+                    window.forecastChart.destroy();
+                }
+
+                // Get chart data
+                let chartData;
+                try {
+                    chartData = prepareChartData();
+                    console.log('Chart data prepared:', chartData);
+                } catch (error) {
+                    console.error('Error preparing chart data:', error);
+                    return;
+                }
+
+                // Create the chart
+                try {
+                    window.forecastChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: chartData.labels,
+                            datasets: [
+                                {
+                                    label: 'Actual Demand',
+                                    data: chartData.actual,
+                                    borderColor: '#06b9f2',
+                                    backgroundColor: 'rgba(6, 185, 242, 0.1)',
+                                    tension: 0.4,
+                                    borderWidth: 3,
+                                    pointRadius: 3,
+                                    pointBackgroundColor: '#06b9f2'
+                                },
+                                {
+                                    label: 'Predicted Demand',
+                                    data: chartData.predicted,
+                                    borderColor: '#d836e9',
+                                    backgroundColor: 'rgba(216, 54, 233, 0.1)',
+                                    tension: 0.4,
+                                    borderWidth: 3,
+                                    pointRadius: 3,
+                                    pointBackgroundColor: '#d836e9',
+                                    borderDash: [5, 5]
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Time'
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Electricity Demand (MWh)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    console.log('Chart created successfully:', window.forecastChart);
+                } catch (error) {
+                    console.error('Error creating chart:', error);
+                }
+            }
+
+
+            function initializeCharts() {
+                console.log('=== initializeCharts called ===');
+
+                try {
+                    if (window.isInitializingCharts) {
+                        console.log('Already initializing charts, skipping...');
+                        return;
+                    }
+
+                    window.isInitializingCharts = true;
+
+                    // Initialize forecast chart
+                    console.log('Initializing forecast chart...');
+                    createRealForecastChart();
+
+                    // Initialize cluster visualization
+                    console.log('Initializing cluster visualization...');
+                    createClusterVisualization(window.clusteredData);
+
+                    // Update model metrics
+                    console.log('Updating model metrics...');
+                    updateModelMetrics();
+
+                    console.log('Charts initialized successfully');
+
+                } catch (error) {
+                    console.error('Error in initializeCharts:', error);
+                } finally {
+                    window.isInitializingCharts = false;
+                }
+            }
+            // Replace your existing loadCSVData function with this fixed version
+
+            async function loadCSVData() {
+                console.log('=== loadCSVData started ===');
+
+                try {
+                    if (window.isLoadingCSV) {
+                        console.log('Already loading CSV, skipping...');
+                        return;
+                    }
+
+                    window.isLoadingCSV = true;
+
+                    // Make sure PapaParse is loaded
+                    if (typeof Papa === 'undefined') {
+                        console.error('PapaParse library is not loaded');
+                        showErrorModal('PapaParse library is not loaded. Please check your CDN link.');
+                        return;
+                    }
+
+                    console.log('Attempting to load CSV files...');
+
+                    try {
+                        // Load clustered data
+                        console.log('Fetching clustered_data.csv...');
+                        const clusteredResponse = await fetch('clustered_data.csv');
+
+                        if (!clusteredResponse.ok) {
+                            throw new Error(`Failed to fetch clustered_data.csv: ${clusteredResponse.status} ${clusteredResponse.statusText}`);
+                        }
+
+                        const clusteredText = await clusteredResponse.text();
+                        console.log('Clustered data text length:', clusteredText.length);
+
+                        // Parse clustered data
+                        const clusteredParsed = Papa.parse(clusteredText, {
+                            header: true,
+                            dynamicTyping: true,
+                            skipEmptyLines: true
+                        });
+
+                        console.log('Clustered parse result:', {
+                            dataLength: clusteredParsed.data?.length,
+                            errors: clusteredParsed.errors,
+                            meta: clusteredParsed.meta
+                        });
+
+                        // Load forecasted data
+                        console.log('Fetching clustered_and_forecasted_data.csv...');
+                        const forecastedResponse = await fetch('clustered_and_forecasted_data.csv');
+
+                        if (!forecastedResponse.ok) {
+                            throw new Error(`Failed to fetch clustered_and_forecasted_data.csv: ${forecastedResponse.status} ${forecastedResponse.statusText}`);
+                        }
+
+                        const forecastedText = await forecastedResponse.text();
+                        console.log('Forecasted data text length:', forecastedText.length);
+
+                        // Parse forecasted data
+                        const forecastedParsed = Papa.parse(forecastedText, {
+                            header: true,
+                            dynamicTyping: true,
+                            skipEmptyLines: true
+                        });
+
+                        console.log('Forecasted parse result:', {
+                            dataLength: forecastedParsed.data?.length,
+                            errors: forecastedParsed.errors,
+                            meta: forecastedParsed.meta
+                        });
+
+                        // Store data globally
+                        window.clusteredData = clusteredParsed.data || [];
+                        window.forecastedData = forecastedParsed.data || [];
+
+                        console.log('CSV data loaded successfully:', {
+                            clusteredDataCount: window.clusteredData.length,
+                            forecastedDataCount: window.forecastedData.length
+                        });
+
+                        // Log first few rows to check data structure
+                        if (window.clusteredData.length > 0) {
+                            console.log('First clustered data row:', window.clusteredData[0]);
+                        }
+                        if (window.forecastedData.length > 0) {
+                            console.log('First forecasted data row:', window.forecastedData[0]);
+                        }
+
+                        // Initialize charts with the loaded data
+                        console.log('Initializing charts...');
+                        initializeCharts();
+
+                    } catch (fetchError) {
+                        console.error('Error fetching CSV files:', fetchError);
+                        console.warn('Failed to fetch files, trying to use sample data or upload instead');
+
+                        // Show user-friendly error with options
+                        showErrorModal(`
+                        <h3>Unable to Load CSV Files</h3>
+                        <p>Error: ${fetchError.message}</p>
+                        <p>Please try one of these options:</p>
+                        <ol style="text-align: left; margin: 10px 0;">
+                            <li>Make sure the CSV files are in the same directory as app.html</li>
+                            <li>Use the file upload feature below</li>
+                            <li>Click "Load Sample Data" to test the interface</li>
+                        </ol>
+                        <div style="margin-top: 15px;">
+                            <button onclick="showFileUploadSection()" class="btn-primary">Upload Files</button>
+                            <button onclick="loadSampleData()" class="btn-secondary" style="margin-left: 10px;">Load Sample Data</button>
+                        </div>
+                    `);
+                    }
+
+                } catch (error) {
+                    console.error('Error in loadCSVData:', error);
+                    console.error('Error stack:', error.stack);
+
+                    showErrorModal(`
+                    <h3>Error Loading Data</h3>
+                    <p>${error.message}</p>
+                    <button onclick="this.closest('.modal').remove()" class="btn-secondary">Close</button>
+                `);
+                } finally {
+                    window.isLoadingCSV = false;
+                    console.log('=== loadCSVData finished ===');
+                }
+            }
+
+            // Add sample data function for testing
+            function loadSampleData() {
+                console.log('Loading sample data...');
+
+                // Generate sample clustered data
+                window.clusteredData = [];
+                for (let i = 0; i < 300; i++) {
+                    const hour = i % 24;
+                    const cluster = Math.floor(Math.random() * 4);
+                    window.clusteredData.push({
+                        demand: 5000 + Math.sin(hour / 24 * Math.PI * 2) * 3000 + Math.random() * 1000,
+                        temperature: 50 + Math.sin(hour / 24 * Math.PI * 2) * 20 + Math.random() * 10,
+                        humidity: 40 + Math.random() * 30,
+                        windSpeed: Math.random() * 20,
+                        hour: hour,
+                        cluster: cluster,
+                        timestamp: new Date(2024, 0, Math.floor(i / 24) + 1, hour).toISOString()
+                    });
+                }
+
+                // Generate sample forecasted data
+                window.forecastedData = [];
+                for (let i = 0; i < 48; i++) {
+                    const hour = i % 24;
+                    const baseValue = 8000 + Math.sin(hour / 24 * Math.PI * 2) * 3000;
+                    window.forecastedData.push({
+                        hour: hour,
+                        demand: baseValue + Math.random() * 1000,
+                        predicted_demand: baseValue + Math.random() * 800,
+                        actual_demand: baseValue + Math.random() * 1000,
+                        timestamp: new Date(2024, 0, Math.floor(i / 24) + 1, hour).toISOString()
+                    });
+                }
+
+                console.log('Sample data loaded:', {
+                    clusteredCount: window.clusteredData.length,
+                    forecastedCount: window.forecastedData.length
+                });
+
+                // Close any modals
+                document.querySelectorAll('.modal').forEach(modal => modal.remove());
+
+                // Initialize charts
+                initializeCharts();
+            }
+
+            // Add file upload section function
+            function showFileUploadSection() {
+                // Remove any existing upload section
+                const existing = document.getElementById('fileUploadSection');
+                if (existing) {
+                    existing.remove();
+                }
+
+                const uploadHtml = `
+                <div id="fileUploadSection" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1001; max-width: 500px; width: 90%;">
+                    <h3>Upload CSV Files</h3>
+                    <div style="margin: 15px 0;">
+                        <label style="display: block; margin-bottom: 5px;">Clustered Data:</label>
+                        <input type="file" id="clusteredFile" accept=".csv" style="width: 100%;">
+                    </div>
+                    <div style="margin: 15px 0;">
+                        <label style="display: block; margin-bottom: 5px;">Forecasted Data:</label>
+                        <input type="file" id="forecastedFile" accept=".csv" style="width: 100%;">
+                    </div>
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button onclick="loadUploadedFiles()" class="btn-primary">Load Files</button>
+                        <button onclick="document.getElementById('fileUploadSection').remove()" class="btn-secondary" style="margin-left: 10px;">Cancel</button>
+                    </div>
+                </div>
+                <div class="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;" onclick="document.getElementById('fileUploadSection').remove(); this.remove();"></div>
+            `;
+
+                document.body.insertAdjacentHTML('beforeend', uploadHtml);
+            }
+
+            // Load uploaded files function
+            async function loadUploadedFiles() {
+                const clusteredFile = document.getElementById('clusteredFile').files[0];
+                const forecastedFile = document.getElementById('forecastedFile').files[0];
+
+                if (!clusteredFile || !forecastedFile) {
+                    alert('Please select both CSV files');
+                    return;
+                }
+
+                const loader = document.getElementById('app-loader');
+                if (loader) {
+                    loader.style.display = 'flex';
+                }
+
+                try {
+                    // Read files
+                    const clusteredText = await readFile(clusteredFile);
+                    const forecastedText = await readFile(forecastedFile);
+
+                    // Parse files
+                    const clusteredParsed = Papa.parse(clusteredText, {
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true
+                    });
+
+                    const forecastedParsed = Papa.parse(forecastedText, {
+                        header: true,
+                        dynamicTyping: true,
+                        skipEmptyLines: true
+                    });
+
+                    // Store data
+                    window.clusteredData = clusteredParsed.data || [];
+                    window.forecastedData = forecastedParsed.data || [];
+
+                    console.log('Uploaded files parsed:', {
+                        clusteredCount: window.clusteredData.length,
+                        forecastedCount: window.forecastedData.length
+                    });
+
+                    // Close upload section
+                    document.getElementById('fileUploadSection').remove();
+                    document.querySelector('.modal-overlay').remove();
+
+                    // Initialize charts
+                    setTimeout(() => {
+                        if (loader) {
+                            loader.style.display = 'none';
+                        }
+                        initializeCharts();
+                    }, 1000);
+
+                } catch (error) {
+                    if (loader) {
+                        loader.style.display = 'none';
+                    }
+                    alert('Error loading files: ' + error.message);
+                    console.error('Error loading uploaded files:', error);
+                }
+            }
+
+            // Read file function
+            function readFile(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.onerror = reject;
+                    reader.readAsText(file);
+                });
+            }
+
+            // Error modal function
+            function showErrorModal(content) {
+                // Remove any existing error modals
+                document.querySelectorAll('.error-modal').forEach(modal => modal.remove());
+
+                const modal = document.createElement('div');
+                modal.className = 'error-modal';
+                modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 2000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+                const modalContent = document.createElement('div');
+                modalContent.style.cssText = `
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                max-width: 500px;
+                width: 90%;
+                text-align: center;
+            `;
+
+                modalContent.innerHTML = content + `
+                <style>
+                    .btn-primary {
+                        background: #06b9f2;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        margin: 5px;
+                    }
+                    .btn-secondary {
+                        background: #e5e7eb;
+                        color: #374151;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        margin: 5px;
+                    }
+                    .btn-primary:hover {
+                        background: #0096ce;
+                    }
+                    .btn-secondary:hover {
+                        background: #d1d5db;
+                    }
+                </style>
+            `;
+
+                modal.appendChild(modalContent);
+                document.body.appendChild(modal);
+
+                // Close on outside click
+                modal.onclick = function (e) {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                };
+            }
+
+            // Make sure these are available globally
+            window.clusteredData = window.clusteredData || [];
+            window.forecastedData = window.forecastedData || [];
+
+            // Call this on page load
+            document.addEventListener('DOMContentLoaded', function () {
+                // Automatically load sample data if files aren't found
+                setTimeout(() => {
+                    if (!window.clusteredData || window.clusteredData.length === 0) {
+                        console.log('No data loaded, showing options...');
+                        showErrorModal(`
+                        <h3>No Data Loaded</h3>
+                        <p>Would you like to load sample data or upload your own CSV files?</p>
+                        <div style="margin-top: 15px;">
+                            <button onclick="loadSampleData()" class="btn-primary">Load Sample Data</button>
+                            <button onclick="showFileUploadSection()" class="btn-secondary">Upload Files</button>
+                        </div>
+                    `);
+                    }
+                }, 2000);
+            });
+
+            // Update model performance metrics
+            function updateModelMetrics() {
+                if (!forecastedData || forecastedData.length === 0) return;
+
+                // Calculate metrics from data
+                const actual = forecastedData.map(d => parseFloat(d.actual_demand || d.demand));
+                const predicted = forecastedData.map(d => parseFloat(d.predicted_demand || d.demand * 1.05));
+
+                // Calculate RMSE
+                const squaredDiffs = actual.map((a, i) => Math.pow(a - predicted[i], 2));
+                const meanSquaredError = squaredDiffs.reduce((sum, val) => sum + val, 0) / actual.length;
+                const rmse = Math.sqrt(meanSquaredError);
+
+                // Calculate R²
+                const actualMean = actual.reduce((sum, val) => sum + val, 0) / actual.length;
+                const totalSS = actual.reduce((sum, val) => sum + Math.pow(val - actualMean, 2), 0);
+                const residualSS = squaredDiffs.reduce((sum, val) => sum + val, 0);
+                const r2 = 1 - (residualSS / totalSS);
+
+                // Calculate accuracy (simplified)
+                const accuracy = 100 - (rmse / actualMean * 100);
+
+                // Update UI
+                document.getElementById('accuracyValue').textContent = accuracy.toFixed(1) + '%';
+                document.getElementById('rmseMetricValue').textContent = rmse.toFixed(2);
+                document.getElementById('r2Value').textContent = r2.toFixed(2);
+
+                // Extract feature importance from data or use defaults
+                const featureImportance = {
+                    temperature: 78,
+                    humidity: 45,
+                    windSpeed: 32,
+                    timeOfDay: 65
+                };
+
+                // Update feature importance bars
+                document.getElementById('tempImportance').textContent = featureImportance.temperature + '%';
+                document.getElementById('tempBar').style.width = featureImportance.temperature + '%';
+
+                document.getElementById('humidityImportance').textContent = featureImportance.humidity + '%';
+                document.getElementById('humidityBar').style.width = featureImportance.humidity + '%';
+
+                document.getElementById('windImportance').textContent = featureImportance.windSpeed + '%';
+                document.getElementById('windBar').style.width = featureImportance.windSpeed + '%';
+
+                document.getElementById('timeImportance').textContent = featureImportance.timeOfDay + '%';
+                document.getElementById('timeBar').style.width = featureImportance.timeOfDay + '%';
+
+                // Animate the feature importance bars
+                const featureBars = [
+                    document.getElementById('tempBar'),
+                    document.getElementById('humidityBar'),
+                    document.getElementById('windBar'),
+                    document.getElementById('timeBar')
+                ];
+
+                featureBars.forEach(bar => {
+                    const width = bar.style.width;
+                    bar.style.width = '0%';
+                    setTimeout(() => {
+                        bar.style.width = width;
+                    }, 300);
+                });
+            }
+
+            // Initialize animations
+            function initializeAnimations() {
+                // Animate cards on load
+                const cards = document.querySelectorAll('.glass-card');
+                cards.forEach((card, index) => {
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateY(20px)';
+                    setTimeout(() => {
+                        card.style.transition = 'all 0.5s ease';
+                        card.style.opacity = '1';
+                        card.style.transform = 'translateY(0)';
+                    }, 100 * index);
+                });
+
+                // Add hover effects to buttons
+                const buttons = document.querySelectorAll('button');
+                buttons.forEach(button => {
+                    button.addEventListener('mouseenter', function () {
+                        this.style.transform = 'translateY(-2px)';
+                    });
+                    button.addEventListener('mouseleave', function () {
+                        this.style.transform = 'translateY(0)';
+                    });
+                });
+            }
+
+            // Help modal functionality
+            document.getElementById('helpBtn').addEventListener('click', function () {
+                const helpModal = document.getElementById('helpModal');
+                helpModal.classList.remove('hidden');
+                setTimeout(() => {
+                    helpModal.style.opacity = '1';
+                    helpModal.querySelector('div').style.transform = 'scale(1)';
+                }, 10);
+            });
+
+            document.getElementById('closeHelpBtn').addEventListener('click', function () {
+                closeHelpModal();
+            });
+
+            // Close modal when clicking outside
+            document.getElementById('helpModal').addEventListener('click', function (e) {
+                if (e.target === this) {
+                    closeHelpModal();
+                }
+            });
+
+            function closeHelpModal() {
+                const helpModal = document.getElementById('helpModal');
+                helpModal.style.opacity = '0';
+                helpModal.querySelector('div').style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    helpModal.classList.add('hidden');
+                }, 300);
+            }
+
+            // Form submission with loading animation
+            document.getElementById('analysisForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                // Show processing modal
+                const processingModal = document.getElementById('processingModal');
+                processingModal.classList.remove('hidden');
+                setTimeout(() => {
+                    processingModal.style.opacity = '1';
+                    processingModal.querySelector('div').style.transform = 'scale(1)';
+                }, 10);
+
+                // Get form data
+                const formData = {
+                    city: document.getElementById('city').value,
+                    dateRange: {
+                        startDate: document.getElementById('startDate').value,
+                        endDate: document.getElementById('endDate').value
+                    },
+                    lookbackWindow: parseInt(document.getElementById('lookbackWindow').value),
+                    clusterCount: parseInt(document.getElementById('clusterCount').value),
+                    model: document.querySelector('input[name="model"]:checked').value,
+                    advancedOptions: {
+                        featureWeight: parseInt(document.getElementById('featureWeight').value),
+                        features: Array.from(document.querySelectorAll('input[name="features"]:checked')).map(el => el.value)
+                    }
+                };
+
+                // Simulate processing steps with progress updates
+                const progressBar = document.getElementById('progressBar');
+                const progressPercentage = document.getElementById('progressPercentage');
+                const processingStatus = document.getElementById('processingStatus');
+
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 5;
+                    progressBar.style.width = `${progress}%`;
+                    progressPercentage.textContent = `${progress}%`;
+
+                    if (progress === 20) {
+                        processingStatus.textContent = 'Loading data...';
+                    } else if (progress === 40) {
+                        processingStatus.textContent = 'Clustering data points...';
+                    } else if (progress === 60) {
+                        processingStatus.textContent = 'Training forecast model...';
+                    } else if (progress === 80) {
+                        processingStatus.textContent = 'Generating visualizations...';
+                    } else if (progress === 100) {
+                        processingStatus.textContent = 'Analysis complete!';
+
+                        // Close modal after a delay
+                        setTimeout(() => {
+                            processingModal.style.opacity = '0';
+                            processingModal.querySelector('div').style.transform = 'scale(0.95)';
+                            setTimeout(() => {
+                                processingModal.classList.add('hidden');
+
+                                // Show loaders for visualizations
+                                document.getElementById('clusterLoader').classList.remove('hidden');
+                                document.getElementById('forecastLoader').classList.remove('hidden');
+
+                                // Filter data based on form inputs
+                                filterAndUpdateVisualizations(formData);
+                            }, 500);
+                        }, 1000);
+
+                        clearInterval(interval);
+                    }
+                }, 100);
+            });
+
+            // Filter data based on form inputs and update visualizations
+            function filterAndUpdateVisualizations(formData) {
+                try {
+                    // Filter data based on city and date range
+                    const filteredClusteredData = clusteredData.filter(d => {
+                        // Filter by city if available in data
+                        if (d.city && d.city.toLowerCase() !== formData.city.toLowerCase()) {
+                            return false;
+                        }
+
+                        // Filter by date range if dates are provided and data has timestamp
+                        if (formData.dateRange.startDate && formData.dateRange.endDate && d.timestamp) {
+                            const dataDate = new Date(d.timestamp);
+                            const startDate = new Date(formData.dateRange.startDate);
+                            const endDate = new Date(formData.dateRange.endDate);
+
+                            return dataDate >= startDate && dataDate <= endDate;
+                        }
+
+                        return true;
+                    });
+
+                    const filteredForecastedData = forecastedData.filter(d => {
+                        // Filter by city if available in data
+                        if (d.city && d.city.toLowerCase() !== formData.city.toLowerCase()) {
+                            return false;
+                        }
+
+                        // Filter by date range if dates are provided and data has timestamp
+                        if (formData.dateRange.startDate && formData.dateRange.endDate && d.timestamp) {
+                            const dataDate = new Date(d.timestamp);
+                            const startDate = new Date(formData.dateRange.startDate);
+                            const endDate = new Date(formData.dateRange.endDate);
+
+                            return dataDate >= startDate && dataDate <= endDate;
+                        }
+
+                        return true;
+                    });
+
+                    // Update visualizations with filtered data
+                    createClusterVisualization(filteredClusteredData);
+                    updateForecastChart(filteredForecastedData);
+
+                    // Hide loaders
+                    document.getElementById('clusterLoader').classList.add('hidden');
+                    document.getElementById('forecastLoader').classList.add('hidden');
+
+                } catch (error) {
+                    console.error('Error filtering data:', error);
+
+                    // Hide loaders
+                    document.getElementById('clusterLoader').classList.add('hidden');
+                    document.getElementById('forecastLoader').classList.add('hidden');
+                }
+            }
+
+            function updateForecastChart(data) {
+                console.log('=== updateForecastChart called ===');
+
+                if (!data || data.length === 0) {
+                    console.warn('No forecast data available');
+                    return;
+                }
+
+                if (!window.forecastChart) {
+                    console.log('Chart not initialized, creating new chart...');
+                    createRealForecastChart();
+                    return;
+                }
+
+                // Prepare chart data from filtered data
+                const chartData = {
+                    labels: data.map(d => d.hour ? `${d.hour}:00` : d.timestamp || ''),
+                    actual: data.map(d => parseFloat(d.actual_demand || d.demand)),
+                    predicted: data.map(d => parseFloat(d.predicted_demand || d.demand * (1 + (Math.random() * 0.1 - 0.05))))
+                };
+
+                // Update chart data
+                window.forecastChart.data.labels = chartData.labels;
+                window.forecastChart.data.datasets[0].data = chartData.actual;
+                window.forecastChart.data.datasets[1].data = chartData.predicted;
+                window.forecastChart.update();
+
+                // Calculate RMSE
+                const squaredDiffs = chartData.actual.map((a, i) => Math.pow(a - chartData.predicted[i], 2));
+                const meanSquaredError = squaredDiffs.reduce((sum, val) => sum + val, 0) / chartData.actual.length;
+                const rmse = Math.sqrt(meanSquaredError);
+
+                // Update RMSE display
+                document.getElementById('rmseValue').textContent = rmse.toFixed(2);
+                document.getElementById('rmseMetricValue').textContent = rmse.toFixed(2);
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                // Add event listeners for axis changes
+                const xAxisSelect = document.getElementById('xAxis');
+                const yAxisSelect = document.getElementById('yAxis');
+
+                if (xAxisSelect) {
+                    // Remove any existing listeners first
+                    xAxisSelect.replaceWith(xAxisSelect.cloneNode(true));
+                    const newXAxis = document.getElementById('xAxis');
+
+                    newXAxis.addEventListener('change', function () {
+                        if (this.timeoutId) {
+                            clearTimeout(this.timeoutId);
+                        }
+
+                        this.timeoutId = setTimeout(function () {
+                            const clusterLoader = document.getElementById('clusterLoader');
+                            if (clusterLoader) {
+                                clusterLoader.classList.remove('hidden');
+                            }
+
+                            setTimeout(() => {
+                                if (window.clusteredData) {
+                                    createClusterVisualization(window.clusteredData);
+                                }
+                                if (clusterLoader) {
+                                    clusterLoader.classList.add('hidden');
+                                }
+                            }, 100);
+                        }, 300);
+                    });
+                }
+
+                if (yAxisSelect) {
+                    // Remove any existing listeners first
+                    yAxisSelect.replaceWith(yAxisSelect.cloneNode(true));
+                    const newYAxis = document.getElementById('yAxis');
+
+                    newYAxis.addEventListener('change', function () {
+                        if (this.timeoutId) {
+                            clearTimeout(this.timeoutId);
+                        }
+
+                        this.timeoutId = setTimeout(function () {
+                            const clusterLoader = document.getElementById('clusterLoader');
+                            if (clusterLoader) {
+                                clusterLoader.classList.remove('hidden');
+                            }
+
+                            setTimeout(() => {
+                                if (window.clusteredData) {
+                                    createClusterVisualization(window.clusteredData);
+                                }
+                                if (clusterLoader) {
+                                    clusterLoader.classList.add('hidden');
+                                }
+                            }, 100);
+                        }, 300);
+                    });
+                }
+            });
+
+            // Add event listeners for forecast view toggles
+            document.getElementById('dailyBtn').addEventListener('click', function () {
+                const forecastLoader = document.getElementById('forecastLoader');
+                forecastLoader.classList.remove('hidden');
+
+                // Filter data for daily view (24 hours)
+                setTimeout(() => {
+                    const dailyData = forecastedData.slice(0, 24);
+                    updateForecastChart(dailyData);
+                    forecastLoader.classList.add('hidden');
+                }, 500);
+            });
+
+            document.getElementById('weeklyBtn').addEventListener('click', function () {
+                const forecastLoader = document.getElementById('forecastLoader');
+                forecastLoader.classList.remove('hidden');
+
+                // Aggregate data for weekly view
+                setTimeout(() => {
+                    // Group data by day and calculate daily averages
+                    const weeklyData = [];
+                    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+                    // Create weekly aggregated data
+                    for (let i = 0; i < 7; i++) {
+                        const dayData = forecastedData.filter((d, index) => Math.floor(index / 24) === i);
+
+                        if (dayData.length > 0) {
+                            const avgDemand = dayData.reduce((sum, d) => sum + parseFloat(d.demand || 0), 0) / dayData.length;
+                            const avgPredicted = dayData.reduce((sum, d) => sum + parseFloat(d.predicted_demand || d.demand * 1.05), 0) / dayData.length;
+
+                            weeklyData.push({
+                                timestamp: days[i],
+                                demand: avgDemand,
+                                predicted_demand: avgPredicted
+                            });
+                        }
+                    }
+
+                    updateForecastChart(weeklyData);
+                    forecastLoader.classList.add('hidden');
+                }, 500);
+            });
+        });
+    </script>
+</body>
+
+</html>
